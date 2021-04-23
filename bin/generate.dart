@@ -119,6 +119,7 @@ class DiagramGenerator {
   Future<void> _createScreenshots(List<String> categories, List<String> names) async {
     print('Creating images.');
     final List<String> filters = <String>[];
+    String buildMode = '--release';
     for (final String category in categories) {
       filters.add('--category');
       filters.add(category);
@@ -133,6 +134,7 @@ class DiagramGenerator {
     } else if (deviceTargetPlatform.startsWith('ios')) {
       filters.add('--platform');
       filters.add('ios');
+      buildMode = '--debug'; // iOS signing is a nightmare, so run in debug mode.
     } else if (deviceTargetPlatform.startsWith('darwin')) {
       filters.add('--platform');
       filters.add('macos');
@@ -169,6 +171,7 @@ class DiagramGenerator {
     final List<String> args = <String>[
           flutterCommand,
           'run',
+          buildMode,
         ] +
         deviceArgs +
         filterArgs;

@@ -15,6 +15,4 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 
 FOR %%i IN ("%~dp0..") DO SET REPO_DIR=%%~fi
 
-cd "%REPO_DIR%/bin"
-pub get & exit /B !ERRORLEVEL!
-dart "%REPO_DIR%/bin/generate.dart" %* & exit /B !ERRORLEVEL!
+dart --no-sound-null-safety "%REPO_DIR%/bin/generate.dart" %* & exit /B !ERRORLEVEL!
