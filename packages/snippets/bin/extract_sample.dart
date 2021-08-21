@@ -19,8 +19,10 @@ const String _kCopyrightNotice = '''
 // found in the LICENSE file.''';
 
 const String _kHelpOption = 'help';
-const String _kInputOption = 'input';
-const String _kOutputOption = 'output';
+const String _kSourceOption = 'source';
+const String _kExampleDirOption = 'example-dir';
+const String _kExampleOption = 'example';
+const String _kCompareOption = 'compare';
 
 /// Extracts the samples from a source file to the given output directory, and
 /// removes them from the original source files, replacing them with a pointer
@@ -29,16 +31,26 @@ Future<void> main(List<String> argList) async {
   final FlutterInformation flutterInformation = FlutterInformation();
   final ArgParser parser = ArgParser();
   parser.addOption(
-    _kOutputOption,
+    _kExampleDirOption,
     defaultsTo: path.join(
         flutterInformation.getFlutterRoot().absolute.path, 'examples', 'api'),
     help: 'The output path for generated sample applications.',
   );
-  parser.addOption(
-    _kInputOption,
-    mandatory: true,
+  parser.addMultiOption(
+    _kSourceOption,
+    help: 'The input Flutter source file containing the sample code to extract.',
+  );
+  parser.addMultiOption(
+    _kExampleOption,
+    help: 'The input Flutter source file containing the sample code to reinsert '
+        'into its corresponding source file.',
+  );
+  parser.addFlag(
+    _kCompareOption,
     help:
-        'The input Flutter source file containing the sample code to extract.',
+    'Compares the given examples with the examples in their corresponding source '
+    'file, or all of the examples from a given source file with the source file, '
+    'and if any relevant sections have changed, exits with a non-zero exit code',
   );
   parser.addFlag(
     _kHelpOption,
@@ -54,33 +66,69 @@ Future<void> main(List<String> argList) async {
     exit(0);
   }
 
-  if (args[_kInputOption] == null || (args[_kInputOption] as String).isEmpty) {
+  if ((args[_kSourceOption] as List<String>).isEmpty &&
+      (args[_kExampleOption]  as List<String>).isEmpty) {
     stderr.writeln(parser.usage);
-    errorExit('The --$_kInputOption option must not be empty.');
+    errorExit('At least one of --$_kSourceOption or --$_kExampleOption must be specified.');
   }
 
-  if (args[_kOutputOption] == null ||
-      (args[_kOutputOption] as String).isEmpty) {
+  if (args[_kExampleDirOption] == null ||
+      (args[_kExampleDirOption] as String).isEmpty) {
     stderr.writeln(parser.usage);
-    errorExit('The --$_kOutputOption option must be specified, and not empty.');
+    errorExit('The --$_kExampleDirOption option must be specified, and not empty.');
   }
 
-  final File input = filesystem.file(args['input'] as String);
-  if (!input.existsSync()) {
-    errorExit('The input file ${input.absolute.path} does not exist.');
-  }
-  final String flutterSource = path.join(
+  final Directory flutterSource = filesystem.directory(path.join(
     flutterInformation.getFlutterRoot().absolute.path,
     'packages',
     'flutter',
     'lib',
     'src',
-  );
-  if (!path.isWithin(flutterSource, input.absolute.path)) {
-    errorExit(
-        'Input file must be under the $flutterSource directory: ${input.absolute.path} is not.');
+  ),);
+  final List<File> sources = <File>[];
+  if ((args[_kSourceOption] as List<String>).isNotEmpty) {
+    for (final String sourcePath in args[_kSourceOption] as List<String>) {
+      final File source = filesystem.file(sourcePath);
+      if (!source.existsSync()) {
+        errorExit('The source file ${source.absolute.path} does not exist.');
+      }
+
+      if (!path.isWithin(flutterSource.absolute.path, source.absolute.path)) {
+        errorExit(
+            'Input file must be under the $flutterSource directory: ${source.absolute.path} is not.');
+      }
+      sources.add(source);
+    }
   }
 
+  final Directory exampleSource = filesystem.directory(path.join(
+    flutterInformation.getFlutterRoot().absolute.path,
+    'examples',
+    'api',
+    'lib',
+  ),);
+  final List<File> examples = <File>[];
+  if ((args[_kExampleOption] as List<String>).isNotEmpty) {
+    for (final String examplePath in args[_kExampleOption] as List<String>) {
+      final File example = filesystem.file(examplePath);
+      if (!example.existsSync()) {
+        errorExit('The example file ${example.absolute.path} does not exist.');
+      }
+
+      if (!path.isWithin(exampleSource.absolute.path, example.absolute.path)) {
+        errorExit(
+            'Input file must be under the $exampleSource directory: ${example.absolute.path} is not.');
+      }
+      examples.add(example);
+    }
+  }
+
+  generateSources(sources, flutterInformation, flutterSource);
+  exit(0);
+}
+
+Future<void> generateSources(List<File> sources, FlutterInformation flutterInformation, Directory flutterSource) async {
+  for (final File input in sources) {
   try {
     final Iterable<SourceElement> fileElements = getFileElements(input);
     final SnippetDartdocParser dartdocParser = SnippetDartdocParser(filesystem);
@@ -89,14 +137,14 @@ Future<void> main(List<String> argList) async {
     dartdocParser.parseAndAddAssumptions(fileElements, input, silent: true);
 
     final String srcPath =
-        path.relative(input.absolute.path, from: flutterSource);
+    path.relative(input.absolute.path, from: flutterSource.absolute.path);
     final String dstPath = path.join(
       flutterInformation.getFlutterRoot().absolute.path,
       'examples',
       'api',
     );
     for (final SourceElement element
-        in fileElements.where((SourceElement element) {
+    in fileElements.where((SourceElement element) {
       return element.sampleCount > 0;
     })) {
       for (final CodeSample sample in element.samples) {
@@ -153,5 +201,5 @@ Future<void> main(List<String> argList) async {
     print('Failed with exception: $e\n$s');
     exit(2);
   }
-  exit(0);
+  }
 }
