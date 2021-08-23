@@ -120,7 +120,7 @@ class FlutterInformation {
 
     final Map<String, dynamic> info = <String, dynamic>{};
     info['flutterRoot'] =
-        filesystem.directory(flutterVersion['flutterRoot']! as String);
+        filesystem.directory(flutterVersion['flutterRoot']! as String).absolute;
     info['frameworkVersion'] =
         Version.parse(flutterVersion['frameworkVersion'] as String);
 

@@ -27,13 +27,43 @@ class FlutterSampleLiberator {
     this.element,
     this.sample, {
     required this.location,
+    File? mainDart,
     String? name,
     this.filesystem = const LocalFileSystem(),
     this.processManager = const LocalProcessManager(),
     Directory? flutterRoot,
   })  : _name = name,
-        flutterRoot =
-            flutterRoot ?? FlutterInformation.instance.getFlutterRoot();
+        mainDart =
+            mainDart ?? filesystem.file(location.childDirectory('lib').childFile('main.dart')),
+        flutterRoot = flutterRoot ?? FlutterInformation.instance.getFlutterRoot();
+
+  FlutterSampleLiberator.fromExample(
+    this.element, {
+    required this.mainDart,
+    String? name,
+    this.filesystem = const LocalFileSystem(),
+    this.processManager = const LocalProcessManager(),
+    Directory? flutterRoot,
+  })  : _name = name,
+        sample = _loadSampleFromExample(mainDart),
+        location = (flutterRoot ?? FlutterInformation.instance.getFlutterRoot())
+            .childDirectory('examples')
+            .childDirectory('api'),
+        flutterRoot = flutterRoot ?? FlutterInformation.instance.getFlutterRoot();
+
+  static CodeSample _loadSampleFromExample(File location) {
+    final List<SourceLine> lines = <SourceLine>[];
+    int count = 0;
+    int startChar = 0;
+    int endChar = 0;
+    for (final String line in location.readAsLinesSync()) {
+      endChar = startChar + line.length + 1; // plus one for newline.
+      lines.add(
+          SourceLine(line, line: count++, file: location, startChar: startChar, endChar: endChar));
+      startChar = endChar;
+    }
+    return DartpadSample(input: lines, args: <String>[], index: 0, lineProto: lines.first);
+  }
 
   /// The optional [FileSystem] object to use for filesystem access.
   ///
@@ -69,15 +99,13 @@ class FlutterSampleLiberator {
   /// element's type, element name, and the index of the sample within the
   /// element's doc comment.
   String get name =>
-      _name ??
-      '${sample.type}_${sample.element.snakeCase.replaceAll('.', '_')}_${sample.index}';
+      _name ?? '${sample.type}_${sample.element.snakeCase.replaceAll('.', '_')}_${sample.index}';
 
   /// The output "main.dart" file for the extracted sample.
-  File get mainDart => location.childDirectory('lib').childFile('main.dart');
+  File mainDart;
 
   CodeSample _findMatchingCodeSample() {
-    final Iterable<SourceElement> sourceElements =
-        getFileCommentElements(element.file);
+    final Iterable<SourceElement> sourceElements = getFileCommentElements(element.file);
     final Iterable<SourceElement> matchingElements =
         sourceElements.where((SourceElement matchElement) {
       return matchElement.elementName == element.elementName &&
@@ -91,8 +119,7 @@ class FlutterSampleLiberator {
     final SnippetDartdocParser parser = SnippetDartdocParser(filesystem);
     final SourceElement matchingElement = matchingElements.first;
     parser.parseComment(matchingElement);
-    final List<CodeSample> foundBlocks =
-        matchingElement.samples.where((CodeSample foundSample) {
+    final List<CodeSample> foundBlocks = matchingElement.samples.where((CodeSample foundSample) {
       return foundSample.index == sample.index;
     }).toList();
     if (foundBlocks.length != 1) {
@@ -103,8 +130,7 @@ class FlutterSampleLiberator {
   }
 
   // "sample" is the matching sample in the current source file.
-  Future<Map<String, int>> _findReplacementRangeAndIndents(
-      [CodeSample? sample]) async {
+  Future<Map<String, int>> _findReplacementRangeAndIndents([CodeSample? sample]) async {
     sample ??= _findMatchingCodeSample();
     int startRange = 0;
     int endRange = 0;
@@ -143,8 +169,8 @@ class FlutterSampleLiberator {
     };
   }
 
-  String _buildSampleReplacement(Map<String, List<String>> sections,
-      List<String> sectionOrder, int indent) {
+  String _buildSampleReplacement(
+      Map<String, List<String>> sections, List<String> sectionOrder, int indent) {
     final String commentMarker = '${' ' * indent}///';
     final List<String> result = <String>[];
     for (final String section in sectionOrder) {
@@ -152,8 +178,7 @@ class FlutterSampleLiberator {
         // Skip missing/empty sections entirely.
         continue;
       }
-      final String dartdocSection =
-          section.replaceFirst(RegExp(r'code-?'), ' ').trimRight();
+      final String dartdocSection = section.replaceFirst(RegExp(r'code-?'), ' ').trimRight();
       final List<String> sectionContents = sections[section]!;
       final int sectionIndent = getIndent(sectionContents.first);
       if (section != 'description' && section != 'sampleLink') {
@@ -161,8 +186,7 @@ class FlutterSampleLiberator {
       }
       result.addAll(sections[section]!.map<String>((String line) {
         // Remove the base indent and any trailing spaces.
-        line = line.substring(
-            math.min(math.min(sectionIndent, getIndent(line)), line.length));
+        line = line.substring(math.min(math.min(sectionIndent, getIndent(line)), line.length));
         return '$commentMarker $line'.trimRight();
       }));
       if (section != 'description' && section != 'sampleLink') {
@@ -176,11 +200,10 @@ class FlutterSampleLiberator {
   }
 
   Future<void> _parseMainDart(
-      {required Map<String, List<String>> sections,
-      required List<String> sectionOrder}) async {
+      {required Map<String, List<String>> sections, required List<String> sectionOrder}) async {
     final List<String> mainDartLines = await mainDart.readAsLines();
-    final RegExp sectionMarkerRe = RegExp(
-        r'^([/]{2}\*) ((?<direction>\S)\3{7}) (?<name>[-a-zA-Z0-9]+).*$');
+    final RegExp sectionMarkerRe =
+        RegExp(r'^([/]{2}\*) ((?<direction>\S)\3{7}) (?<name>[-a-zA-Z0-9]+).*$');
     String? currentSection;
     int firstTrailingEmpty = -1;
     sections.clear();
@@ -196,10 +219,9 @@ class FlutterSampleLiberator {
         } else {
           // End of a section
           // Remove any blank lines at the end
-          if (firstTrailingEmpty >= 0 &&
-              firstTrailingEmpty < sections[currentSection]!.length) {
-            sections[currentSection]!.removeRange(
-                firstTrailingEmpty, sections[currentSection]!.length);
+          if (firstTrailingEmpty >= 0 && firstTrailingEmpty < sections[currentSection]!.length) {
+            sections[currentSection]!
+                .removeRange(firstTrailingEmpty, sections[currentSection]!.length);
           }
           // Remove the section if it's empty.
           if (sections[currentSection]!.isEmpty) {
@@ -232,10 +254,7 @@ class FlutterSampleLiberator {
   /// Extracts the configured sample project to the configured output location.
   ///
   /// Returns true if the extraction succeeded.
-  Future<bool> extract(
-      {bool overwrite = false,
-      File? mainDart,
-      bool includeMobile = false}) async {
+  Future<bool> extract({bool overwrite = false, File? mainDart, bool includeMobile = false}) async {
     if (await location.exists() && !overwrite) {
       throw SnippetException(
           'Project output location ${location.absolute.path} exists, refusing to overwrite.');
@@ -278,8 +297,7 @@ class FlutterSampleLiberator {
     // Rewrite the pubspec to include the right constraints and point to the flutter root.
 
     final File pubspec = location.childFile('pubspec.yaml');
-    final Version flutterVersion =
-        FlutterInformation.instance.getFlutterVersion();
+    final Version flutterVersion = FlutterInformation.instance.getFlutterVersion();
     final Version dartVersion = FlutterInformation.instance.getDartSdkVersion();
     await pubspec.writeAsString('''
 name: $name
@@ -311,8 +329,7 @@ include: ${flutterRoot.absolute.path}/analysis_options.yaml
 ''');
 
     // Run 'flutter pub get' to update the dependencies.
-    result = await processManager.run(
-        <String>[flutter.absolute.path, 'pub', 'get'],
+    result = await processManager.run(<String>[flutter.absolute.path, 'pub', 'get'],
         workingDirectory: location.absolute.path);
 
     return result.exitCode == 0;
@@ -330,19 +347,18 @@ include: ${flutterRoot.absolute.path}/analysis_options.yaml
 
       // Re-parse the original file to find the current char range for the
       // original example.
-      final Map<String, int> rangesAndIndents =
-          await _findReplacementRangeAndIndents();
+      final Map<String, int> rangesAndIndents = await _findReplacementRangeAndIndents();
       final int startRange = rangesAndIndents['startRange']!;
       final int endRange = rangesAndIndents['endRange']!;
       final File frameworkFile = sample.start.file!;
       String frameworkContents = await frameworkFile.readAsString();
 
       // Create a substitute example, and replace the char range with the new example.
-      final String replacement = _buildSampleReplacement(
-          sections, sectionOrder, rangesAndIndents['firstIndent']!);
+      final String replacement =
+          _buildSampleReplacement(sections, sectionOrder, rangesAndIndents['firstIndent']!);
       // Rewrite the original framework file.
-      frameworkContents = frameworkContents.replaceRange(startRange, endRange,
-          startRange == endRange ? '\n$replacement' : replacement);
+      frameworkContents = frameworkContents.replaceRange(
+          startRange, endRange, startRange == endRange ? '\n$replacement' : replacement);
       await frameworkFile.writeAsString(frameworkContents);
     } on SnippetException catch (e) {
       return e.message;
@@ -356,8 +372,7 @@ include: ${flutterRoot.absolute.path}/analysis_options.yaml
     // Re-parse the original file to find the current char range for the
     // original example.
     final CodeSample matchingSample = _findMatchingCodeSample();
-    final Map<String, int> rangesAndIndents =
-        await _findReplacementRangeAndIndents(matchingSample);
+    final Map<String, int> rangesAndIndents = await _findReplacementRangeAndIndents(matchingSample);
     final int startRange = rangesAndIndents['startRange']!;
     final int endRange = rangesAndIndents['endRange']!;
     final File frameworkFile = sample.start.file!;
@@ -368,8 +383,7 @@ include: ${flutterRoot.absolute.path}/analysis_options.yaml
 
     // Create a substitute example that only contains a reference to the
     // output file, and the description.
-    final String linkPath =
-        path.relative(mainDart.path, from: flutterRoot.absolute.path);
+    final String linkPath = path.relative(mainDart.path, from: flutterRoot.absolute.path);
     final String replacement = _buildSampleReplacement(<String, List<String>>{
       'description': matchingSample.description.split('\n'),
       'sampleLink': <String>['** See code in $linkPath **'],
@@ -378,8 +392,8 @@ include: ${flutterRoot.absolute.path}/analysis_options.yaml
       'sampleLink'
     ], rangesAndIndents['firstIndent']!);
     // Rewrite the original framework file.
-    frameworkContents = frameworkContents.replaceRange(startRange, endRange,
-        startRange == endRange ? '\n$replacement' : replacement);
+    frameworkContents = frameworkContents.replaceRange(
+        startRange, endRange, startRange == endRange ? '\n$replacement' : replacement);
     await frameworkFile.writeAsString(frameworkContents);
   }
 }
