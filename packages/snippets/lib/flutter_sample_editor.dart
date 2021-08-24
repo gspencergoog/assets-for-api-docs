@@ -20,8 +20,9 @@ import 'util.dart';
 
 /// An editor for the samples in a Flutter source file.
 ///
-/// This class is used to [extract] an editable sample to a project at the given [location], and then [reinsert] the
-/// edited sample in the original Flutter source file.
+/// This class is used to [extract] an editable sample to a project at the given
+/// [location], and then [reinsert] the edited sample in the original Flutter source
+/// file.
 class FlutterSampleLiberator {
   FlutterSampleLiberator(
     this.element,
@@ -36,34 +37,6 @@ class FlutterSampleLiberator {
         mainDart =
             mainDart ?? filesystem.file(location.childDirectory('lib').childFile('main.dart')),
         flutterRoot = flutterRoot ?? FlutterInformation.instance.getFlutterRoot();
-
-  FlutterSampleLiberator.fromExample(
-    this.element, {
-    required this.mainDart,
-    String? name,
-    this.filesystem = const LocalFileSystem(),
-    this.processManager = const LocalProcessManager(),
-    Directory? flutterRoot,
-  })  : _name = name,
-        sample = _loadSampleFromExample(mainDart),
-        location = (flutterRoot ?? FlutterInformation.instance.getFlutterRoot())
-            .childDirectory('examples')
-            .childDirectory('api'),
-        flutterRoot = flutterRoot ?? FlutterInformation.instance.getFlutterRoot();
-
-  static CodeSample _loadSampleFromExample(File location) {
-    final List<SourceLine> lines = <SourceLine>[];
-    int count = 0;
-    int startChar = 0;
-    int endChar = 0;
-    for (final String line in location.readAsLinesSync()) {
-      endChar = startChar + line.length + 1; // plus one for newline.
-      lines.add(
-          SourceLine(line, line: count++, file: location, startChar: startChar, endChar: endChar));
-      startChar = endChar;
-    }
-    return DartpadSample(input: lines, args: <String>[], index: 0, lineProto: lines.first);
-  }
 
   /// The optional [FileSystem] object to use for filesystem access.
   ///

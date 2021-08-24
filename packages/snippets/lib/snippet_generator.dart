@@ -375,6 +375,7 @@ class SnippetGenerator {
                       from: flutterRoot.absolute.path)
                   : templateFile.absolute.path;
           final String templateHeader = '''
+// Type: ${sample.type}
 // Template: $templateRelativePath
 //
 // Comment lines marked with "▼▼▼" and "▲▲▲" are used for authoring

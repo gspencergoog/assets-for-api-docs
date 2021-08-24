@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:io' show stderr, exit;
+import 'dart:io' show stderr, exitCode;
 
 import 'package:args/args.dart';
 import 'package:file/file.dart';
@@ -12,11 +12,10 @@ import 'package:recase/recase.dart';
 import 'package:snippets/snippets.dart';
 
 const LocalFileSystem filesystem = LocalFileSystem();
-FlutterInformation flutterInformation = FlutterInformation();
 
 final Directory flutterSource = filesystem.directory(
   path.join(
-    flutterInformation.getFlutterRoot().path,
+    FlutterInformation.instance.getFlutterRoot().path,
     'packages',
     'flutter',
     'lib',
@@ -26,7 +25,7 @@ final Directory flutterSource = filesystem.directory(
 
 final Directory exampleSource = filesystem.directory(
   path.join(
-    flutterInformation.getFlutterRoot().path,
+    FlutterInformation.instance.getFlutterRoot().path,
     'examples',
     'api',
     'lib',
@@ -41,10 +40,14 @@ const String _kCopyrightNotice = '''
 // found in the LICENSE file.''';
 
 const String _kHelpOption = 'help';
+const String _kModeOption = 'mode';
 const String _kSourceOption = 'source';
 const String _kExampleDirOption = 'example-dir';
 const String _kExampleOption = 'example';
-const String _kCompareOption = 'compare';
+const String _kModeExtract = 'extract';
+const String _kModeInsert = 'insert';
+const String _kModeCompare = 'compare';
+const Set<String> _kModes = <String>{_kModeInsert, _kModeExtract, _kModeCompare};
 
 /// Extracts the samples from a source file to the given output directory, and
 /// removes them from the original source files, replacing them with a pointer
@@ -53,23 +56,33 @@ Future<void> main(List<String> argList) async {
   final ArgParser parser = ArgParser();
   parser.addOption(
     _kExampleDirOption,
-    defaultsTo: path.join(flutterInformation.getFlutterRoot().path, 'examples', 'api'),
+    defaultsTo: path.join(FlutterInformation.instance.getFlutterRoot().path, 'examples', 'api'),
     help: 'The output path for generated sample applications.',
   );
+  parser.addOption(_kModeOption,
+      allowed: _kModes,
+      allowedHelp: <String, String>{
+        _kModeExtract: 'Extract samples from the given --$_kSourceOption files, and place them '
+            'into the --$_kExampleDirOption destination',
+        _kModeInsert: 'Insert the examples from the given --$_kExampleOption files, and place '
+            'them into the original source files that they came from.',
+        _kModeCompare:
+            'Compares the given examples with the examples in their corresponding source '
+                'file, or all of the examples from a given source file with the source file, '
+                'and if any relevant sections have changed, exits with a non-zero exit code',
+      },
+      mandatory: true,
+      help: 'Whether to insert, extract, or compare samples from a source file or example file.');
   parser.addMultiOption(
     _kSourceOption,
-    help: 'The input Flutter source file containing the sample code to extract.',
+    help: 'The input Flutter source file containing the sample code to extract. Only valid '
+        'when the --$_kModeOption is "$_kModeExtract" or "$_kModeCompare".',
   );
   parser.addMultiOption(
     _kExampleOption,
     help: 'The input Flutter source file containing the sample code to reinsert '
-        'into its corresponding source file.',
-  );
-  parser.addFlag(
-    _kCompareOption,
-    help: 'Compares the given examples with the examples in their corresponding source '
-        'file, or all of the examples from a given source file with the source file, '
-        'and if any relevant sections have changed, exits with a non-zero exit code',
+        'into its corresponding source file. Only valid when the --$_kModeOption is '
+        '"$_kModeInsert" or "$_kModeCompare"',
   );
   parser.addFlag(
     _kHelpOption,
@@ -82,7 +95,8 @@ Future<void> main(List<String> argList) async {
 
   if (args[_kHelpOption] as bool) {
     stderr.writeln(parser.usage);
-    exit(0);
+    exitCode = 0;
+    return;
   }
 
   if ((args[_kSourceOption] as List<String>).isEmpty &&
@@ -107,7 +121,8 @@ Future<void> main(List<String> argList) async {
       if (!path.isWithin(flutterSource.path, source.path)) {
         errorExit('Input file must be under the $flutterSource directory: ${source.path} is not.');
       }
-      sources.add(path.relative(source.path, from: flutterInformation.getFlutterRoot().path));
+      sources
+          .add(path.relative(source.path, from: FlutterInformation.instance.getFlutterRoot().path));
     }
   }
 
@@ -122,96 +137,114 @@ Future<void> main(List<String> argList) async {
       if (!path.isWithin(exampleSource.path, example.path)) {
         errorExit('Input file must be under the $exampleSource directory: ${example.path} is not.');
       }
-      examples.add(path.relative(example.path, from: flutterInformation.getFlutterRoot().path));
+      examples.add(
+          path.relative(example.path, from: FlutterInformation.instance.getFlutterRoot().path));
     }
   }
 
-  final Map<String, Set<String>> examplesToSources = mapExamplesToSources(examples, sources);
+  final Map<String, Set<String>> sourcesToExamples = mapSourcesToExamples(examples, sources);
 
-  // Verify that we didn't try and re-insert a sample into a source file we're
-  // extracting from.
-  if (examples.isNotEmpty && sources.isNotEmpty) {
-    final Set<String> forbiddenSources =
-        sources.toSet().intersection(examplesToSources.keys.toSet());
-    Set<String> forbiddenSamples = <String>{};
-    if (forbiddenSources.isNotEmpty) {
-      forbiddenSamples = <String>{
-        for (final String file in forbiddenSources) ...examplesToSources[file]!,
-      };
-      forbiddenSamples = forbiddenSamples.intersection(examples.toSet());
+  exitCode = 0;
+  final String mode = args[_kModeOption] as String;
+  try {
+    switch (mode) {
+      case _kModeExtract:
+        if (examples.isNotEmpty) {
+          errorExit('--$_kExampleOption can only be specified when the --$_kModeOption is '
+              '"$_kModeInsert" or "$_kModeCompare"');
+        }
+        if (sources.isNotEmpty) {
+          await extractFromSources(sources);
+        } else {
+          errorExit('Must specify at least one --$_kExampleOption with '
+              '--$_kModeOption=$_kModeExtract');
+        }
+        break;
+      case _kModeInsert:
+        if (sources.isNotEmpty) {
+          errorExit('--$_kExampleOption can only be specified when the --$_kModeOption is '
+              '"$_kModeExtract" or "$_kModeCompare"');
+        }
+        if (examples.isNotEmpty) {
+          await reinsertIntoSources(sourcesToExamples);
+        } else {
+          errorExit(
+              'Must specify at least one --$_kSourceOption with --$_kModeOption=$_kModeInsert');
+        }
+        break;
+      case _kModeCompare:
+        if (examples.isEmpty && sources.isEmpty) {
+          errorExit('Must specify at least one of --$_kSourceOption or --$_kExampleOption with '
+              '--$_kModeOption=$_kModeCompare');
+        }
+        if (examples.isNotEmpty) {
+          if (await compareExamples(sourcesToExamples) != 0) {
+            exitCode = 1;
+          }
+        }
+        if (sources.isNotEmpty) {
+          if (await compareSources(sources) != 0) {
+            exitCode = 1;
+          }
+        }
+        break;
+      default:
+        errorExit('Unknown --$_kModeOption argument $mode');
+        break;
     }
-    if (forbiddenSamples.isNotEmpty) {
-      errorExit('Sample${forbiddenSamples.length > 1 ? 's' : ''} supplied with --$_kExampleOption '
-          '(${forbiddenSamples.join(', ')}) come${forbiddenSamples.length > 1 ? '' : 's'} from '
-          "${forbiddenSources.length > 1 ? 'source files' : 'a source file'} supplied with "
-          "--$_kSourceOption (${forbiddenSources.join(', ')}). Can't reinsert a sample into a "
-          'source file that is also being extracted from.');
-    }
+  } on SnippetException catch (e, s) {
+    print('Failed: $e\n$s');
+    exitCode = 2;
+  } on FileSystemException catch (e, s) {
+    print('Failed with file system exception: $e\n$s');
+    exitCode = 3;
+  } catch (e, s) {
+    print('Failed with exception: $e\n$s');
+    exitCode = 4;
   }
-
-  if (sources.isNotEmpty) {
-    extractFromSources(sources);
-  }
-  if (examples.isNotEmpty) {
-    reinsertIntoSources(examplesToSources);
-  }
-  exit(0);
 }
 
-// Make a map of all the examples that go into each file.
-Map<String, Set<String>> mapExamplesToSources(Iterable<String> examples, Iterable<String> sources) {
-  final Map<String, Set<String>> sourceToSamples = <String, Set<String>>{};
+Future<int> compareExamples(Map<String, Set<String>> sourcesToExamples) async {
+  return 0;
+}
+
+Future<int> compareSources(List<String> sources) async {
+  return 0;
+}
+
+// Make a map of all the examples given that go into each source file.
+Map<String, Set<String>> mapSourcesToExamples(Iterable<String> examples, Iterable<String> sources) {
+  final Map<String, Set<String>> sourceToExamples = <String, Set<String>>{};
   for (final String input in examples) {
     final String relativePath = path.relative(
-      path.join(flutterInformation.getFlutterRoot().path, input),
+      path.join(FlutterInformation.instance.getFlutterRoot().path, input),
       from: exampleSource.path,
     );
     final File sourceFile =
         filesystem.file('${path.dirname(path.join(flutterSource.path, relativePath))}.dart');
     final String sourceFilePath = path.relative(
       sourceFile.path,
-      from: flutterInformation.getFlutterRoot().path,
+      from: FlutterInformation.instance.getFlutterRoot().path,
     );
-    sourceToSamples[sourceFilePath] ??= <String>{};
-    sourceToSamples[sourceFilePath]!.add(input);
+    sourceToExamples[sourceFilePath] ??= <String>{};
+    sourceToExamples[sourceFilePath]!.add(input);
   }
-  return sourceToSamples;
+  return sourceToExamples;
 }
 
-Future<void> extractFromSources(
-  List<String> sources, {
-  FlutterInformation? information,
-}) async {
-  information ??= flutterInformation;
+Future<void> extractFromSources(List<String> sources) async {
   for (final String input in sources) {
-    try {
-      await extractFromSource(
-        filesystem.file(path.join(flutterInformation.getFlutterRoot().path, input)),
-        information: information,
-      );
-    } on SnippetException catch (e, s) {
-      print('Failed: $e\n$s');
-      exit(1);
-    } on FileSystemException catch (e, s) {
-      print('Failed with file system exception: $e\n$s');
-      exit(2);
-    } catch (e, s) {
-      print('Failed with exception: $e\n$s');
-      exit(2);
-    }
+    await extractFromSource(
+      filesystem.file(path.join(FlutterInformation.instance.getFlutterRoot().path, input)),
+    );
   }
 }
 
-Future<void> extractFromSource(
-  File input, {
-  FlutterInformation? information,
-}) async {
-  information ??= flutterInformation;
-  final List<FlutterSampleLiberator> liberators =
-      await createLiberators(input, information: information);
+Future<void> extractFromSource(File input) async {
+  final List<FlutterSampleLiberator> liberators = await createLiberators(input);
   final String srcPath = path.relative(input.path, from: flutterSource.path);
   final String dstPath = path.join(
-    information.getFlutterRoot().path,
+    FlutterInformation.instance.getFlutterRoot().path,
     'examples',
     'api',
   );
@@ -249,9 +282,8 @@ Future<void> extractFromSource(
 
 Future<List<FlutterSampleLiberator>> createLiberators(
   File input, {
-  FlutterInformation? information,
+  Map<String, Set<String>>? examplesToSources,
 }) async {
-  information ??= flutterInformation;
   final Iterable<SourceElement> fileElements = getFileElements(input);
   final SnippetDartdocParser dartdocParser = SnippetDartdocParser(filesystem);
   final SnippetGenerator snippetGenerator = SnippetGenerator();
@@ -259,7 +291,7 @@ Future<List<FlutterSampleLiberator>> createLiberators(
   dartdocParser.parseAndAddAssumptions(fileElements, input, silent: true);
 
   final String dstPath = path.join(
-    information.getFlutterRoot().path,
+    FlutterInformation.instance.getFlutterRoot().path,
     'examples',
     'api',
   );
@@ -272,12 +304,16 @@ Future<List<FlutterSampleLiberator>> createLiberators(
       if (sample.type != 'dartpad' && sample.type != 'sample') {
         continue;
       }
-      snippetGenerator.generateCode(
-        sample,
-        includeAssumptions: false,
-        addSectionMarkers: true,
-        copyright: _kCopyrightNotice,
-      );
+      if (examplesToSources != null && examplesToSources.containsKey(input.path)) {
+        // TODO: load examples from example files.
+      } else {
+        snippetGenerator.generateCode(
+          sample,
+          includeAssumptions: false,
+          addSectionMarkers: true,
+          copyright: _kCopyrightNotice,
+        );
+      }
       liberators.add(FlutterSampleLiberator(
         element,
         sample,
@@ -288,30 +324,15 @@ Future<List<FlutterSampleLiberator>> createLiberators(
   return liberators;
 }
 
-Future<void> reinsertIntoSources(
-  Map<String, Set<String>> examplesToSources, {
-  FlutterInformation? information,
-}) async {
-  information ??= flutterInformation;
-
+Future<void> reinsertIntoSources(Map<String, Set<String>> examplesToSources) async {
   for (final String sourceFile in examplesToSources.keys) {
-    try {
-      await reinsertIntoSource(
-        filesystem.file(sourceFile),
-        examplesToSources[sourceFile]!.map<File>((String example) {
-          return filesystem.file(path.join(flutterInformation.getFlutterRoot().path, example));
-        }).toSet(),
-      );
-    } on SnippetException catch (e, s) {
-      print('Failed: $e\n$s');
-      exit(1);
-    } on FileSystemException catch (e, s) {
-      print('Failed with file system exception: $e\n$s');
-      exit(2);
-    } catch (e, s) {
-      print('Failed with exception: $e\n$s');
-      exit(2);
-    }
+    await reinsertIntoSource(
+      filesystem.file(sourceFile),
+      examplesToSources[sourceFile]!.map<File>((String example) {
+        return filesystem
+            .file(path.join(FlutterInformation.instance.getFlutterRoot().path, example));
+      }).toSet(),
+    );
   }
 }
 
@@ -361,7 +382,7 @@ Future<void> reinsertIntoSource(File sourceFile, Set<File> examples) async {
     exampleElements[example] = ExampleInformation(foundElement, foundTemplate);
   }
 
-  for (final File example in exampleElements.keys) {
-    CodeSample sample = CodeSample();
-  }
+  // for (final File example in exampleElements.keys) {
+  //   CodeSample sample = CodeSample();
+  // }
 }
