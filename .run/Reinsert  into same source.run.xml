@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Reinsert  into same source" type="DartCommandLineRunConfigurationType" factoryName="Dart Command Line Application">
+    <option name="arguments" value="--source=$PROJECT_DIR$/../flutter/packages/flutter/lib/src/animation/curves.dart --example=$PROJECT_DIR$/../flutter/examples/api/lib/animation/curves/curve2_d.0.dart" />
+    <option name="envs">
+      <entry key="FLUTTER_ROOT" value="$PROJECT_DIR$/../flutter" />
+      <entry key="FLUTTER_VERSION" value="{   &quot;frameworkVersion&quot;: &quot;2.5.0-7.0.pre.189&quot;,   &quot;channel&quot;: &quot;extract_samples&quot;,   &quot;repositoryUrl&quot;: &quot;git@github.com:gspencergoog/flutter.git&quot;,   &quot;frameworkRevision&quot;: &quot;fc45f85fecd26da7904e3c3b99123b35b27acda2&quot;,   &quot;frameworkCommitDate&quot;: &quot;2021-08-20 16:13:02 -0700&quot;,   &quot;engineRevision&quot;: &quot;710af46d538990a2b74f5b4a90103eef81c401ff&quot;,   &quot;dartSdkVersion&quot;: &quot;2.15.0 (build 2.15.0-42.0.dev)&quot;,   &quot;flutterRoot&quot;: &quot;$PROJECT_DIR$/../flutter&quot; } " />
+    </option>
+    <option name="filePath" value="$PROJECT_DIR$/packages/snippets/bin/extract_sample.dart" />
+    <option name="workingDirectory" value="$PROJECT_DIR$/../flutter" />
+    <method v="2" />
+  </configuration>
+</component>
