@@ -17,24 +17,6 @@ import 'package:snippets/snippets.dart';
 import 'data_types.dart';
 import 'util.dart';
 
-/// Gets an iterable over all of the blocks of documentation comments in a file
-/// using the analyzer.
-///
-/// Each entry in the list is a list of source lines corresponding to the
-/// documentation comment block.
-Iterable<List<SourceLine>> getFileDocumentationComments(File file) {
-  return getDocumentationComments(getFileElements(file));
-}
-
-/// Gets an iterable over all of the blocks of documentation comments from an
-/// iterable over the [SourceElement]s involved.
-Iterable<List<SourceLine>> getDocumentationComments(
-    Iterable<SourceElement> elements) {
-  return elements
-      .where((SourceElement element) => element.comment.isNotEmpty)
-      .map<List<SourceLine>>((SourceElement element) => element.comment);
-}
-
 /// Gets an iterable over the comment [SourceElement]s in a file.
 Iterable<SourceElement> getFileCommentElements(File file) {
   return getCommentElements(getFileElements(file));

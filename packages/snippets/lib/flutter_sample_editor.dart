@@ -59,6 +59,7 @@ class FlutterSampleLiberator {
   /// This serves as a destination for the [extract] function, and a source for
   /// the [reinsert] function.
   final Directory location;
+
   // A name that overrides the default naming if specified in the constructor.
   final String? _name;
 
@@ -143,7 +144,10 @@ class FlutterSampleLiberator {
   }
 
   String _buildSampleReplacement(
-      Map<String, List<String>> sections, List<String> sectionOrder, int indent) {
+    Map<String, List<String>> sections,
+    List<String> sectionOrder,
+    int indent,
+  ) {
     final String commentMarker = '${' ' * indent}///';
     final List<String> result = <String>[];
     for (final String section in sectionOrder) {
@@ -172,8 +176,10 @@ class FlutterSampleLiberator {
     return result.join('\n');
   }
 
-  Future<void> _parseMainDart(
-      {required Map<String, List<String>> sections, required List<String> sectionOrder}) async {
+  Future<void> _parseMainDart({
+    required Map<String, List<String>> sections,
+    required List<String> sectionOrder,
+  }) async {
     final List<String> mainDartLines = await mainDart.readAsLines();
     final RegExp sectionMarkerRe =
         RegExp(r'^([/]{2}\*) ((?<direction>\S)\3{7}) (?<name>[-a-zA-Z0-9]+).*$');
@@ -227,7 +233,11 @@ class FlutterSampleLiberator {
   /// Extracts the configured sample project to the configured output location.
   ///
   /// Returns true if the extraction succeeded.
-  Future<bool> extract({bool overwrite = false, File? mainDart, bool includeMobile = false}) async {
+  Future<bool> extract({
+    bool overwrite = false,
+    File? mainDart,
+    bool includeMobile = false,
+  }) async {
     if (await location.exists() && !overwrite) {
       throw SnippetException(
           'Project output location ${location.absolute.path} exists, refusing to overwrite.');

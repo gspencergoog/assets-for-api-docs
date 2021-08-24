@@ -282,7 +282,7 @@ Future<void> extractFromSource(File input) async {
 
 Future<List<FlutterSampleLiberator>> createLiberators(
   File input, {
-  Map<String, Set<String>>? examplesToSources,
+  Set<String>? examples,
 }) async {
   final Iterable<SourceElement> fileElements = getFileElements(input);
   final SnippetDartdocParser dartdocParser = SnippetDartdocParser(filesystem);
@@ -304,8 +304,8 @@ Future<List<FlutterSampleLiberator>> createLiberators(
       if (sample.type != 'dartpad' && sample.type != 'sample') {
         continue;
       }
-      if (examplesToSources != null && examplesToSources.containsKey(input.path)) {
-        // TODO: load examples from example files.
+      if (examples != null && examples.contains(sample.exampleFile!.path)) {
+        sample.output = sample.exampleFile!.readAsStringSync();
       } else {
         snippetGenerator.generateCode(
           sample,
@@ -317,6 +317,7 @@ Future<List<FlutterSampleLiberator>> createLiberators(
       liberators.add(FlutterSampleLiberator(
         element,
         sample,
+        mainDart: sample.exampleFile,
         location: filesystem.directory(dstPath),
       ));
     }
@@ -328,61 +329,14 @@ Future<void> reinsertIntoSources(Map<String, Set<String>> examplesToSources) asy
   for (final String sourceFile in examplesToSources.keys) {
     await reinsertIntoSource(
       filesystem.file(sourceFile),
-      examplesToSources[sourceFile]!.map<File>((String example) {
-        return filesystem
-            .file(path.join(FlutterInformation.instance.getFlutterRoot().path, example));
-      }).toSet(),
+      examplesToSources[sourceFile]!,
     );
   }
 }
 
-class ExampleInformation {
-  const ExampleInformation(this.element, this.templateName);
-
-  final SourceElement element;
-  final String templateName;
-}
-
-Future<void> reinsertIntoSource(File sourceFile, Set<File> examples) async {
-  final Iterable<SourceElement> fileElements = getFileElements(sourceFile);
-  final Map<File, ExampleInformation> exampleElements = <File, ExampleInformation>{};
-  // Collect the SourceElements that match the samples they contain, so we have an actual
-  // destination for the sample code.
-  for (final File example in examples) {
-    final RegExp symbolRegex =
-        RegExp(r'^// Flutter code sample for (?<symbol>.*)\s*$', multiLine: true);
-    final RegExp templateRegex = RegExp(r'^// Template: (?<template>.*)\s*$', multiLine: true);
-    final String exampleMain = example.readAsStringSync();
-    final RegExpMatch? match = symbolRegex.firstMatch(exampleMain);
-    final RegExpMatch? templateMatch = templateRegex.firstMatch(exampleMain);
-    late String symbolName;
-    SourceElement? foundElement;
-    String? foundTemplate;
-    if (match != null) {
-      symbolName = match.namedGroup('symbol')!;
-      print('Re-inserting $symbolName into ${sourceFile.path}');
-    } else {
-      throw SnippetException('Unable to find symbol name in ${example.path}');
-    }
-    foundTemplate = templateMatch?.namedGroup('template');
-    print('Found template $foundTemplate');
-    for (final SourceElement element in fileElements) {
-      if (element.elementName == symbolName) {
-        foundElement = element;
-        break;
-      }
-    }
-    if (foundElement == null) {
-      throw SnippetException(
-          'Unable to find symbol $symbolName (from ${example.path}) in ${sourceFile.path}');
-    }
-    if (foundTemplate == null) {
-      throw SnippetException('Unable to find template name in ${example.path}');
-    }
-    exampleElements[example] = ExampleInformation(foundElement, foundTemplate);
+Future<void> reinsertIntoSource(File sourceFile, Set<String> examples) async {
+  final List<FlutterSampleLiberator> liberators = await createLiberators(sourceFile, examples: examples);
+  for (final FlutterSampleLiberator liberator in liberators) {
+    liberator.reinsert();
   }
-
-  // for (final File example in exampleElements.keys) {
-  //   CodeSample sample = CodeSample();
-  // }
 }

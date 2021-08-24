@@ -78,30 +78,30 @@ abstract class CodeSample {
     required SourceLine lineProto,
   })  : assert(args.isNotEmpty),
         _lineProto = lineProto,
-        sourceFile = null;
+        exampleFile = null;
 
   CodeSample.fromFile(
     this.args,
     this.input,
-    this.sourceFile, {
+    this.exampleFile, {
     required this.index,
     required SourceLine lineProto,
   })  : assert(args.isNotEmpty),
         _lineProto = lineProto;
 
-  final File? sourceFile;
+  final File? exampleFile;
   final List<String> args;
   final List<SourceLine> input;
   final SourceLine _lineProto;
   String? _sourceFileContents;
   String get sourceFileContents {
-    if (sourceFile != null && _sourceFileContents == null) {
+    if (exampleFile != null && _sourceFileContents == null) {
       // Strip lines until the first non-comment line. This gets rid of the
       // copyright and comment directing the reader to the original source file.
       final List<String> stripped = <String>[];
       bool doneStrippingHeaders = false;
       try {
-        for (final String line in sourceFile!.readAsLinesSync()) {
+        for (final String line in exampleFile!.readAsLinesSync()) {
           if (!doneStrippingHeaders &&
               RegExp(r'^\s*(\/\/.*)?$').hasMatch(line)) {
             continue;
@@ -112,7 +112,7 @@ abstract class CodeSample {
         }
       } on FileSystemException catch (e) {
         throw SnippetException(
-          'Unable to read linked source file ${sourceFile!}: $e',
+          'Unable to read linked source file ${exampleFile!}: $e',
           file: _lineProto.file?.absolute.path,
         );
       }

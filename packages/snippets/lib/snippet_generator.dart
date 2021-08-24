@@ -357,7 +357,7 @@ class SnippetGenerator {
       case DartpadSample:
       case ApplicationSample:
         String app;
-        if (sample.sourceFile == null) {
+        if (sample.exampleFile == null) {
           final Directory templatesDir = configuration.templatesDirectory;
           final String templateName = sample.template;
           final File? templateFile =
@@ -424,7 +424,7 @@ class SnippetGenerator {
       case SnippetSample:
         if (sample is SnippetSample) {
           String app;
-          if (sample.sourceFile == null) {
+          if (sample.exampleFile == null) {
             String templateContents;
             if (includeAssumptions) {
               templateContents =
