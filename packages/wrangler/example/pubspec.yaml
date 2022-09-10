@@ -13,7 +13,7 @@ dartdoc:
 dependencies:
   args: ^2.0.0
   file: ^6.1.0
-  snippets:
+  wrangler:
     path: ..
 
 dev_dependencies:

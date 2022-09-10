@@ -16,9 +16,12 @@ const String _kHelpOption = 'help';
 const String _kInputOption = 'input';
 const String _kForceOption = 'force';
 
+/// This is the GitStatusFailed class.
+/// Refer to [gitResult].
 class GitStatusFailed implements Exception {
   GitStatusFailed(this.gitResult);
 
+  /// Refer to `gitResult` and [gitResult].
   final ProcessResult gitResult;
 
   @override
@@ -129,20 +132,24 @@ void main(List<String> argList) {
     return;
   }
 
+  final RegExp indentRe = RegExp(r'^[ ]*');
+  final List<String> sourceLines = input.readAsLinesSync();
   final bool forceOption = args[_kForceOption]! as bool;
-
-  final Iterable<SourceElement> elements = getFileElements(input);
-
-  for (SourceElement element in elements) {
-    print(element.name);
-    for (CodeSample sample in element.samples) {
-      print(
-        sample.input.map<String>(
-          (SourceLine line) {
-            return line.text;
-          },
-        ),
-      );
+  final Iterable<SourceElement> elements = getFileCommentElements(input);
+  for (final SourceElement element in elements) {
+    final Iterable<List<SourceLine>> docLines = getDocumentationComments(<SourceElement>[element]);
+    for (final List<SourceLine> lineBlock in docLines) {
+      for (final SourceLine line in lineBlock) {
+        final RegExp symbolRe = RegExp('`${element.name}`');
+        // print('Matching `${element.name}` in ${line.text}');
+        if (symbolRe.hasMatch(line.text)) {
+          final String result = line.text.replaceAllMapped(symbolRe, (Match match) {
+            return '[${element.name}]';
+          });
+          final String indent = indentRe.firstMatch(sourceLines[line.line])!.group(0)!;
+          print('${line.file?.path}:${line.line}:$indent$result');
+        }
+      }
     }
   }
 }
