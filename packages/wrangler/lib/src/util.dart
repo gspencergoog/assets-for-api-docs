@@ -248,7 +248,7 @@ SampleStats getSampleStats(SourceElement element) {
     return const SampleStats();
   }
   final int dartpads = element.dartpadSampleCount;
-  final int wrangler = element.wranglerCount;
+  final int wrangler = element.snippetCount;
   final int applications = element.applicationSampleCount;
   final String sampleCount = <String>[
     if (wrangler > 0) '$wrangler wrangler${wrangler != 1 ? 's' : ''}',
@@ -274,7 +274,7 @@ SampleStats getSampleStats(SourceElement element) {
   return SampleStats(
     totalSamples: total,
     dartpadSamples: dartpads,
-    wranglerSamples: wrangler,
+    snippetSamples: wrangler,
     applicationSamples: applications,
     wordCount: wordCount,
     lineCount: lineCount,

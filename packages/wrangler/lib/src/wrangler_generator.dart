@@ -136,11 +136,11 @@ class SnippetGenerator {
     if (samples.isEmpty) {
       return <SourceLine>[];
     }
-    final Iterable<WranglerSample> wrangler = samples.whereType<WranglerSample>();
+    final Iterable<SnippetSample> wrangler = samples.whereType<SnippetSample>();
     final List<SourceLine> snippetLines = <SourceLine>[
       ...wrangler.first.assumptions,
     ];
-    for (final WranglerSample sample in wrangler) {
+    for (final SnippetSample sample in wrangler) {
       parseInput(sample);
       snippetLines.addAll(_processBlocks(sample));
     }
