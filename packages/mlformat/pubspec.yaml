@@ -1,0 +1,19 @@
+name: source_convert
+description: Command line utility for converting source code into ML input.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.19.0-0 <3.0.0'
+
+dependencies:
+  analyzer: ^4.3.1
+  args: ^2.3.1
+  file: ^6.1.4
+  mlformat:
+    path: ..
+  path: ^1.8.0
+
+dev_dependencies:
+  flutter_lints: ^2.0.0
