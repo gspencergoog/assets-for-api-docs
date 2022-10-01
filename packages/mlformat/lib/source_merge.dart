@@ -17,8 +17,7 @@ Future<void> main(List<String> arguments) async {
   final ArgParser parser = ArgParser();
   parser.addFlag('help', help: 'Print help.');
   parser.addOption('output', abbr: 'o', help: 'Specify an output directory.');
-  parser.addOption('input',
-      abbr: 'i', help: 'Specify input directory path with both dart and whitespace files.');
+  parser.addOption('input', abbr: 'i', help: 'Specify input directory path with both dart and whitespace files.');
   final ArgResults flags = parser.parse(arguments);
 
   if (flags['help'] as bool) {
@@ -29,20 +28,31 @@ Future<void> main(List<String> arguments) async {
 
   final Directory inputDir = fs.directory(flags['input']).absolute;
   final Directory outputDir = fs.directory(flags['output']).absolute;
-  final List<File> allFiles = await inputDir
+  final List<File> tokenFiles = await inputDir
       .list(recursive: true)
-      .where((FileSystemEntity entity) => entity is File && (entity.path.endsWith('.dart') || entity.path.endsWith('.dart.ws')))
+      .where((FileSystemEntity entity) =>
+          entity is File && (entity.path.endsWith('.dart')))
       .cast<File>()
-      .map<File>((File file) => fs.file(fs.path.relative(file.absolute.path, from: inputDir.path)),)
+      .map<File>(
+        (File file) => fs.file(fs.path.relative(file.absolute.path, from: inputDir.path)),
+      )
       .toList();
 
-  final List<File> tokenFiles = allFiles.where((File element) => element.path.endsWith('.dart')).toList();
-  final List<File> whitespaceFiles = allFiles.where((File element) => element.path.endsWith('.dart.ws')).toList();
+  final List<File> whitespaceFiles = tokenFiles.map<File>((File file) => fs.file('${file.path}.ws')).toList();
+  assert(whitespaceFiles.length == tokenFiles.length);
   int count = 0;
-  for (final File token in tokenFiles) {
-    final File whitespace = whitespaceFiles[count];
-    final File output = fs.file(fs.path.join(outputDir.path, fs.path.relative(token.path, from: inputDir.path)));
-    output.writeAsString(mergeFile(token, whitespace));
+  for (final File tokenRelative in tokenFiles) {
+    final File token = fs.file(
+      fs.path.join(inputDir.path, tokenRelative.path),
+    );
+    final File whitespace = fs.file(
+      fs.path.join(inputDir.path, whitespaceFiles[count].path),
+    );
+    final File output = fs.file(
+      fs.path.join(outputDir.path, tokenRelative.path),
+    );
+    await output.parent.create(recursive: true);
+    await output.writeAsString(mergeFile(token, whitespace));
     count++;
   }
 }
