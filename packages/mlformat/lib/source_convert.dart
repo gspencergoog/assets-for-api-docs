@@ -15,15 +15,13 @@ import 'package:analyzer/file_system/physical_file_system.dart' as afs;
 import 'package:args/args.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
-import 'package:path/path.dart' as path;
 
 /// The main app here.
-void main(List<String> arguments) {
+Future<void> main(List<String> arguments) async {
   final ArgParser parser = ArgParser();
   parser.addFlag('help', help: 'Print help.');
   parser.addOption('output', abbr: 'o', help: 'Specify an output directory');
-  parser.addOption('input',
-      abbr: 'i', help: 'Specify a file with input files listed in it, one per line, absolute paths.');
+  parser.addOption('input', abbr: 'i', help: 'Specify a directory to look for Dart files in.');
   final ArgResults flags = parser.parse(arguments);
 
   if (flags['help'] as bool) {
@@ -33,17 +31,25 @@ void main(List<String> arguments) {
   }
 
   const LocalFileSystem fs = LocalFileSystem();
-
-  final List<String> fileList = fs.file(flags['input']).readAsLinesSync();
+  final Directory input = fs.directory(flags['input']).absolute;
+  final List<File> files = await input
+      .list(recursive: true)
+      .where((FileSystemEntity entity) => entity is File && entity.path.endsWith('.dart'))
+      .cast<File>()
+      .map<File>((File file) => fs.file(fs.path.relative(file.absolute.path, from: input.path)),)
+      .toList();
+  print('Loading ${files.length} files.');
   final Directory output = fs.directory(flags['output']);
   if (!output.existsSync()) {
     output.createSync(recursive: true);
   }
-  for (final String fileStr in fileList) {
-    final File inputFile = fs.file(fileStr).absolute;
+  print('Writing output to ${output.path}');
+  int count = 0;
+  for (final File inputFile in files) {
+    final File outputFile = fs.file(fs.path.join(output.absolute.path, inputFile.path));
+    outputFile.parent.createSync(recursive: true);
     final List<Split> splits = tokenize(inputFile);
-    final File whitespaceFile = output.childFile('${path.basenameWithoutExtension(inputFile.path)}.ws');
-    final File outputFile = output.childFile('${path.basenameWithoutExtension(inputFile.path)}.in');
+    final File whitespaceFile = fs.file('${fs.path.withoutExtension(outputFile.path)}.ws');
     final IOSink whitespaceSink = whitespaceFile.openWrite();
     final IOSink outputSink = outputFile.openWrite();
     for (final Split split in splits) {
@@ -52,7 +58,10 @@ void main(List<String> arguments) {
     }
     whitespaceSink.close();
     outputSink.close();
+    count++;
+    print('Converting file $count/${files.length}\r');
   }
+  print('');
 }
 
 class Split {
@@ -97,9 +106,7 @@ List<Split> tokenizeBranch({
 List<Split> tokenize(File file, {afs.ResourceProvider? resourceProvider}) {
   resourceProvider ??= afs.PhysicalResourceProvider.INSTANCE;
   final ParseStringResult parseResult = parseFile(
-      featureSet: FeatureSet.latestLanguageVersion(),
-      path: file.absolute.path,
-      resourceProvider: resourceProvider);
+      featureSet: FeatureSet.latestLanguageVersion(), path: file.absolute.path, resourceProvider: resourceProvider);
   final Token startingToken = parseResult.unit.beginToken;
   final Token endToken = parseResult.unit.endToken;
   final String content = parseResult.content;
