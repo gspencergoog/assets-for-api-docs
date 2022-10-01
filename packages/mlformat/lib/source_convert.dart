@@ -56,6 +56,7 @@ Future<void> main(List<String> arguments) async {
       whitespaceSink.write('${split.whitespace}|');
       outputSink.write('${split.content}\n');
     }
+    // Write trailing newline.
     whitespaceSink.write('\n|');
     whitespaceSink.close();
     outputSink.close();
