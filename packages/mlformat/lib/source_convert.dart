@@ -49,7 +49,7 @@ Future<void> main(List<String> arguments) async {
     final File outputFile = fs.file(fs.path.join(output.absolute.path, inputFile.path));
     outputFile.parent.createSync(recursive: true);
     final List<Split> splits = tokenize(inputFile);
-    final File whitespaceFile = fs.file('${fs.path.withoutExtension(outputFile.path)}.ws');
+    final File whitespaceFile = fs.file('${outputFile.path}.ws');
     final IOSink whitespaceSink = whitespaceFile.openWrite();
     final IOSink outputSink = outputFile.openWrite();
     for (final Split split in splits) {

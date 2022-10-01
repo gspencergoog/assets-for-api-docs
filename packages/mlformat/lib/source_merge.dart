@@ -10,15 +10,15 @@ import 'package:args/args.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 
+const LocalFileSystem fs = LocalFileSystem();
+
 /// The main app here.
-void main(List<String> arguments) {
+Future<void> main(List<String> arguments) async {
   final ArgParser parser = ArgParser();
   parser.addFlag('help', help: 'Print help.');
-  parser.addOption('output', abbr: 'o', help: 'Specify an output file');
-  parser.addOption('tokens',
-      abbr: 't', help: 'Specify input file path with tokens.');
-  parser.addOption('whitespace',
-      abbr: 'w', help: 'Specify input file path with whitespace.');
+  parser.addOption('output', abbr: 'o', help: 'Specify an output directory.');
+  parser.addOption('input',
+      abbr: 'i', help: 'Specify input directory path with both dart and whitespace files.');
   final ArgResults flags = parser.parse(arguments);
 
   if (flags['help'] as bool) {
@@ -27,24 +27,38 @@ void main(List<String> arguments) {
     exit(0);
   }
 
-  const LocalFileSystem fs = LocalFileSystem();
+  final Directory inputDir = fs.directory(flags['input']).absolute;
+  final Directory outputDir = fs.directory(flags['output']).absolute;
+  final List<File> allFiles = await inputDir
+      .list(recursive: true)
+      .where((FileSystemEntity entity) => entity is File && (entity.path.endsWith('.dart') || entity.path.endsWith('.dart.ws')))
+      .cast<File>()
+      .map<File>((File file) => fs.file(fs.path.relative(file.absolute.path, from: inputDir.path)),)
+      .toList();
 
+  final List<File> tokenFiles = allFiles.where((File element) => element.path.endsWith('.dart')).toList();
+  final List<File> whitespaceFiles = allFiles.where((File element) => element.path.endsWith('.dart.ws')).toList();
+  int count = 0;
+  for (final File token in tokenFiles) {
+    final File whitespace = whitespaceFiles[count];
+    final File output = fs.file(fs.path.join(outputDir.path, fs.path.relative(token.path, from: inputDir.path)));
+    output.writeAsString(mergeFile(token, whitespace));
+    count++;
+  }
+}
 
-  final File whitespaceFile = fs.file(flags['whitespace']);
-  final File tokenFile = fs.file(flags['tokens']);
-
+String mergeFile(File tokenFile, File whitespaceFile) {
   final String whitespace = whitespaceFile.readAsStringSync();
   final String tokens = tokenFile.readAsStringSync();
 
   final List<Split> merged = merge(whitespace.split('|'), tokens.split('\n'));
 
-  final File output = fs.file(flags['output']);
-  final IOSink outputSink = output.openWrite();
+  final StringBuffer buffer = StringBuffer();
   for (final Split split in merged) {
-    outputSink.write(split.whitespace);
-    outputSink.write(split.token);
+    buffer.write(split.whitespace);
+    buffer.write(split.token);
   }
-  outputSink.close();
+  return buffer.toString();
 }
 
 class Split {
