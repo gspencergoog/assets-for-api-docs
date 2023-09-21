@@ -106,7 +106,7 @@ class SnippetDartdocParser {
     }
     // No need to get assumptions: dartdoc won't give that to us.
     final SourceElement newElement = SourceElement(
-        SourceElementType.unknownType, element!, -1,
+        SourceElementType.unknownType, element!, -1, -1,
         file: input, comment: lines);
     parseFromComments(<SourceElement>[newElement], silent: silent);
     for (final CodeSample sample in newElement.samples) {

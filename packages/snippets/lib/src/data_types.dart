@@ -358,7 +358,8 @@ class SourceElement {
   factory SourceElement(
     SourceElementType type,
     String name,
-    int startPos, {
+    int startPos,
+    int endPos, {
     required File file,
     String className = '',
     List<SourceLine>? comment,
@@ -375,6 +376,7 @@ class SourceElement {
       type,
       name,
       startPos,
+      endPos,
       file: file,
       className: className,
       comment: comment,
@@ -391,7 +393,8 @@ class SourceElement {
   const SourceElement._(
     this.type,
     this.name,
-    this.startPos, {
+    this.startPos,
+    this.endPos, {
     required this.file,
     this.className = '',
     this.comment = const <SourceLine>[],
@@ -423,7 +426,7 @@ class SourceElement {
   // the code itself, or any dartdoc tags.
   static String _getCommentStringWithoutCode(String string) {
     return string.replaceAll(
-        RegExp(r'([`]{3}.*?[`]{3}|\{@\w+[^}]*\}|/// ?)', dotAll: true), '');
+        RegExp(r'([`]{3}.*?[`]{3}|\{@\w+[^}]*\}|/// ?)', dotAll: true), '').replaceAll(RegExp(r'(\n\s*\n)+', dotAll: true), '\n\n');
   }
 
   /// The type of the element
@@ -449,8 +452,11 @@ class SourceElement {
   /// The file that this [SourceElement] was parsed from.
   final File file;
 
-  /// The character position in the file that this [SourceElement] starts at.
+  /// The character position in the file that this [SourceElement] starts.
   final int startPos;
+
+  /// The character position in the file that this [SourceElement] ends.
+  final int endPos;
 
   /// The line in the file that the first position of [SourceElement] is on.
   final int startLine;
@@ -518,6 +524,41 @@ class SourceElement {
     return regex.allMatches(commentStringWithoutCode).length;
   }
 
+  /// The source code associated with this SourceElement, extracted from the
+  /// file.
+  ///
+  /// For classes, this can include the entire class implementation, and so
+  /// contains the implementations of the members as well.
+  String get implementation {
+    if (startPos == -1 || endPos == -1 || !file.existsSync()) {
+      return '';
+    }
+    final String contents = file.readAsStringSync();
+    final String implementation = contents.substring(startPos, endPos);
+    int pos = startPos - 1;
+    while (pos > 0 && (contents[pos] == ' ' || contents[pos] == '\t')) {
+      pos -= 1;
+    }
+    if (pos < 0) {
+      pos = 0;
+    }
+    if (startPos - pos != 0) {
+      return contents.substring(pos, startPos) + implementation;
+    }
+    return implementation;
+  }
+
+  // The source code associated with this source element, with all the comments
+  // stripped.
+  String get implementationWithoutComments {
+    // TODO(gspencergoog): This should really be done at the AST level, not with
+    // a regex, but that requires re-parsing the file to skip the comments, and
+    // then collecting the comment-free implementation of the right symbols. The
+    // regex version will easily be confused by two slashes inside string
+    // constants.
+    return implementation.replaceAll(RegExp(r'[ \t]*\/\/[^\n]*(?=\n)', dotAll: true), '').replaceAll(RegExp(r'(\n\s*\n)+', dotAll: true), '\n\n');
+  }
+
   /// Returns the fully qualified name of this element.
   ///
   /// For example, a method called "doSomething" that is part of the class
@@ -545,6 +586,7 @@ class SourceElement {
     SourceElementType? type,
     String? name,
     int? startPos,
+    int? endPos,
     File? file,
     String? className,
     List<SourceLine>? comment,
@@ -556,6 +598,7 @@ class SourceElement {
       type ?? this.type,
       name ?? this.name,
       startPos ?? this.startPos,
+      endPos ?? this.endPos,
       file: file ?? this.file,
       className: className ?? this.className,
       comment: comment ?? this.comment,
