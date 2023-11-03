@@ -195,6 +195,35 @@ void main() {
       expect(assumptions.length, equals(1));
       expect(assumptions.first.text, equals('int integer = 3;'));
     });
+
+    test('Throws exception when no example is found in a block', () async {
+      final String sourcePath =
+          path.join(tmpDir.absolute.path, 'snippet_in.dart');
+      final File inputFile = memoryFileSystem.file(sourcePath)
+        ..createSync(recursive: true);
+      final String toolPath =
+          path.join(tmpDir.absolute.path, 'snippet_in.tool');
+      final File toolFile = memoryFileSystem.file(toolPath)
+        ..createSync(recursive: true)
+        ..writeAsStringSync(r'''
+Top level variable comment
+{@tool snippet}
+Description
+{@end-tool}
+''');
+      final SnippetDartdocParser sampleParser =
+          SnippetDartdocParser(memoryFileSystem);
+      try {
+        sampleParser.parseFromDartdocToolFile(toolFile,
+            element: 'thing', sourceFile: inputFile, startLine: 0);
+        expect(false, isTrue,
+            reason:
+                "Didn't throw exception when parsing example with no code.");
+      } on SnippetException catch (e) {
+        expect(
+            e.message, contains("Didn't find any Dart code or linked sample."));
+      }
+    });
   });
 }
 
@@ -203,8 +232,6 @@ File _createSnippetSourceFile(Directory tmpDir, FileSystem filesystem) {
     ..createSync(recursive: true)
     ..writeAsStringSync(r'''
 // Copyright
-
-// @dart = 2.12
 
 import 'foo.dart';
 

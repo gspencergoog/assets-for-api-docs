@@ -15,7 +15,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:vector_math/vector_math_64.dart';
 
 /// Provides a [WidgetController] to diagrams, which can be used to
 /// programmatically input gestures to the widget tree.
@@ -76,55 +75,6 @@ class _Diagram extends StatelessWidget {
 }
 
 const Size _kDefaultDiagramViewportSize = Size(1280.0, 1024.0);
-
-// View configuration that allows diagrams to not match the physical dimensions
-// of the device. This will change the view used to display the flutter surface
-// so that the diagram surface fits on the device, but it doesn't affect the
-// captured image pixels.
-class _DiagramViewConfiguration extends ViewConfiguration {
-  _DiagramViewConfiguration({
-    super.size = _kDefaultDiagramViewportSize,
-  }) : _paintMatrix = _getMatrix(
-            size,
-            ui.PlatformDispatcher.instance.implicitView?.devicePixelRatio ??
-                1.0);
-
-  static Matrix4 _getMatrix(Size size, double devicePixelRatio) {
-    final double baseRatio =
-        ui.PlatformDispatcher.instance.implicitView?.devicePixelRatio ?? 1.0;
-    final double inverseRatio = devicePixelRatio / baseRatio;
-    final Size implicitSize =
-        ui.PlatformDispatcher.instance.implicitView?.physicalSize ?? Size.zero;
-    final double actualWidth = implicitSize.width * inverseRatio;
-    final double actualHeight = implicitSize.height * inverseRatio;
-    final double desiredWidth = size.width;
-    final double desiredHeight = size.height;
-    double scale, shiftX, shiftY;
-    if ((actualWidth / actualHeight) > (desiredWidth / desiredHeight)) {
-      scale = actualHeight / desiredHeight;
-      shiftX = (actualWidth - desiredWidth * scale) / 2.0;
-      shiftY = 0.0;
-    } else {
-      scale = actualWidth / desiredWidth;
-      shiftX = 0.0;
-      shiftY = (actualHeight - desiredHeight * scale) / 2.0;
-    }
-    final Matrix4 matrix = Matrix4.compose(
-        Vector3(shiftX, shiftY, 0.0), // translation
-        Quaternion.identity(), // rotation
-        Vector3(scale, scale, 1.0) // scale
-        );
-    return matrix;
-  }
-
-  final Matrix4 _paintMatrix;
-
-  @override
-  Matrix4 toMatrix() => _paintMatrix.clone();
-
-  @override
-  String toString() => '_DiagramViewConfiguration';
-}
 
 // Provides a concrete implementation of WidgetController.
 class _DiagramWidgetController extends WidgetController
@@ -270,6 +220,7 @@ class DiagramFlutterBinding extends BindingBase
     return _controller.startGesture(downLocation, pointer: pointer);
   }
 
+<<<<<<< Updated upstream
   @override
   ViewConfiguration createViewConfigurationFor(RenderView renderView) {
     return _DiagramViewConfiguration(
@@ -277,6 +228,8 @@ class DiagramFlutterBinding extends BindingBase
     );
   }
 
+=======
+>>>>>>> Stashed changes
   /// Captures an image of the [RepaintBoundary] with the given key.
   Future<ui.Image> takeSnapshot() {
     final RenderRepaintBoundary object = _boundaryKey.currentContext!

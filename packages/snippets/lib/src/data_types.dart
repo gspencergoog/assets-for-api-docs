@@ -325,7 +325,7 @@ enum SourceElementType {
   unknownType,
 }
 
-/// Converts the enun type [SourceElementType] to a human readable string.
+/// Converts the enum type [SourceElementType] to a human readable string.
 String sourceElementTypeAsString(SourceElementType type) {
   switch (type) {
     case SourceElementType.classType:

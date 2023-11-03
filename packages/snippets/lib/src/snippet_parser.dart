@@ -43,7 +43,7 @@ class SnippetDartdocParser {
 
   /// A RegExp that matches a linked sample pointer.
   static final RegExp _filePointerRegex =
-      RegExp(r'\*\* See code in (?<file>[^\]]+) \*\*');
+      RegExp(r'\*\* See code in (?<file>.+) \*\*');
 
   /// Parses the assumptions in the "Examples can assume:" block at the top of
   /// the `assumptionsFile` and adds them to the code samples contained in the
@@ -76,7 +76,7 @@ class SnippetDartdocParser {
   SourceElement parseFromDartdocToolFile(
     File input, {
     int? startLine,
-    String? element,
+    required String element,
     required File sourceFile,
     String template = '',
     String type = '',
@@ -88,7 +88,7 @@ class SnippetDartdocParser {
       // The parser wants to read the arguments from the input, so we create a new
       // tool line to match the given arguments, so that we can use the same parser for
       // editing and docs generation.
-      '/// {@tool $type ${template.isNotEmpty ? ' --template=$template}' : ''}}',
+      '/// {@tool $type${template.isNotEmpty ? ' --template=$template}' : ''}}',
       // Snippet input comes in with the comment markers stripped, so we add them
       // back to make it conform to the source format, so we can use the same
       // parser for editing samples as we do for processing docs.
@@ -99,14 +99,13 @@ class SnippetDartdocParser {
     ];
     for (final String line in inputStrings) {
       lines.add(
-        SourceLine(line,
-            element: element ?? '', line: lineNumber, file: sourceFile),
+        SourceLine(line, element: element, line: lineNumber, file: sourceFile),
       );
       lineNumber++;
     }
     // No need to get assumptions: dartdoc won't give that to us.
     final SourceElement newElement = SourceElement(
-        SourceElementType.unknownType, element!, -1,
+        SourceElementType.unknownType, element, -1,
         file: input, comment: lines);
     parseFromComments(<SourceElement>[newElement], silent: silent);
     for (final CodeSample sample in newElement.samples) {
@@ -224,6 +223,12 @@ class SnippetDartdocParser {
               file: line.file?.path, line: line.line);
         }
         if (_dartDocSampleEndRegex.hasMatch(trimmedLine)) {
+          if (!foundDartSection && !foundSourceLink) {
+            throw SnippetException(
+                "Didn't find any Dart code or linked sample. At least one must be present in code sample blocks.\n  ${element.comment.map<String>((SourceLine line) => line.text).join('\n  ')}",
+                file: line.file?.path,
+                line: line.line);
+          }
           switch (snippetArgs.first) {
             case 'snippet':
               samples.add(
@@ -285,6 +290,7 @@ class SnippetDartdocParser {
           snippetArgs = <String>[];
           block = <SourceLine>[];
           inSnippet = false;
+          inDart = false;
           foundSourceLink = false;
           foundDartSection = false;
           linkedFile = null;

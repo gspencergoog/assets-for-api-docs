@@ -176,7 +176,7 @@ class CupertinoColorsDiagram extends StatelessWidget with DiagramMetadata {
                       style: textStyle, textAlign: TextAlign.center),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 14.0),
-                    child: Text('High\nconstrast color',
+                    child: Text('High\ncontrast color',
                         style: textStyle, textAlign: TextAlign.center),
                   ),
                   Padding(
@@ -221,7 +221,7 @@ class CupertinoColorsDiagram extends StatelessWidget with DiagramMetadata {
                       style: textStyle, textAlign: TextAlign.center),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 14.0),
-                    child: Text('High\nconstrast color',
+                    child: Text('High\ncontrast color',
                         style: textStyle, textAlign: TextAlign.center),
                   ),
                   Padding(
@@ -320,7 +320,7 @@ class CupertinoColorsDiagram extends StatelessWidget with DiagramMetadata {
                       style: textStyle, textAlign: TextAlign.center),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 14.0),
-                    child: Text('High\nconstrast color',
+                    child: Text('High\ncontrast color',
                         style: textStyle, textAlign: TextAlign.center),
                   ),
                   Padding(
@@ -369,7 +369,7 @@ class CupertinoColorsDiagram extends StatelessWidget with DiagramMetadata {
                     style: textStyle, textAlign: TextAlign.center),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14.0),
-                  child: Text('High\nconstrast color',
+                  child: Text('High\ncontrast color',
                       style: textStyle, textAlign: TextAlign.center),
                 ),
                 Padding(

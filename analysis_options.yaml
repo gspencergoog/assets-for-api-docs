@@ -94,7 +94,10 @@ linter:
     - flutter_style_todos
     - hash_and_equals
     - implementation_imports
+<<<<<<< Updated upstream
     - collection_methods_unrelated_type
+=======
+>>>>>>> Stashed changes
     # - join_return_with_assignment # not required by flutter style
     - leading_newlines_in_multiline_strings
     - library_names
